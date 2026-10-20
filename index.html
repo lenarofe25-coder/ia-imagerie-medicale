@@ -1,0 +1,1240 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Présentation : l’IA dans l’imagerie médicale — détection assistée de tumeurs, fiabilité et questions éthiques.">
+<title>L’IA dans l’imagerie médicale</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one 1600×900 stage scaled to the screen like a projector. A single cloud of
+   9 000 particles is the protagonist and changes shape every chapter; text sits on the left,
+   the cloud on the right, DICOM readouts in the corners. Single dark look by choice. */
+:root{
+  --ink:#03070f;      /* deepest background */
+  --navy:#0a1730;     /* panels */
+  --line:#1b3156;     /* hairlines */
+  --fg:#eef4fd;       /* main text */
+  --muted:#8ea4c6;    /* secondary text */
+  --accent:#ff5b1f;   /* orange: findings, emphasis (from the Canva deck) */
+  --scan:#62a9ff;     /* scanner blue */
+  --display:"Archivo","Arial Black","Segoe UI",system-ui,sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--ink);color:var(--fg);font-family:var(--body);overflow:hidden}
+#viewport{position:fixed;inset:0;overflow:hidden;background:var(--ink)}
+#stage{position:absolute;left:0;top:0;width:1600px;height:900px;transform-origin:0 0;overflow:hidden;
+  background:radial-gradient(ellipse 80% 75% at 68% 48%,#0b1d3c 0%,#06101f 55%,var(--ink) 100%)}
+#gl{position:absolute;inset:0;width:1600px;height:900px;z-index:5}
+.bgimg{position:absolute;z-index:1;pointer-events:none;max-width:none}
+.fx{position:absolute;inset:0;pointer-events:none}
+.fx-vig{z-index:40;background:radial-gradient(ellipse 78% 72% at 50% 50%,transparent 55%,rgba(1,4,10,.8) 100%)}
+.fx-lines{z-index:41;opacity:.14;mix-blend-mode:overlay;background:repeating-linear-gradient(0deg,rgba(255,255,255,.1) 0 1px,transparent 1px 3px)}
+#grain{position:absolute;inset:0;z-index:42;opacity:.07;pointer-events:none;width:1600px;height:900px;mix-blend-mode:screen}
+.fx-sweep{position:absolute;left:0;right:0;top:-6px;height:3px;z-index:43;pointer-events:none;opacity:0;
+  background:linear-gradient(90deg,transparent,var(--accent) 18%,#ffe1d4 50%,var(--accent) 82%,transparent);
+  box-shadow:0 0 34px 8px rgba(255,91,31,.5)}
+.fx-flash{position:absolute;inset:0;z-index:44;pointer-events:none;background:#cfe3ff;opacity:0;mix-blend-mode:overlay}
+
+/* scenes */
+.scene{position:absolute;inset:0;visibility:hidden}
+.scene > *{position:absolute;z-index:10}
+.scene > .bgimg{z-index:1}
+.scene > .ecg{z-index:6}
+.scene.on{visibility:visible}
+.scene img{position:absolute;max-width:none;pointer-events:none;user-select:none}
+h1,h2{font-family:var(--display);font-weight:800;letter-spacing:-.03em;margin:0;line-height:1;text-wrap:balance}
+.ln{display:block;overflow:hidden;padding-bottom:.1em;margin-bottom:-.1em}
+.ln > span{display:inline-block;white-space:pre}
+.acc{color:var(--accent)}
+.sc .g{color:var(--accent)} .z{opacity:0}
+.kick{font-family:var(--mono);font-size:14px;letter-spacing:.24em;text-transform:uppercase;color:var(--scan);display:flex;gap:14px;align-items:center}
+.kick::before{content:"";width:34px;height:2px;background:var(--accent)}
+.chap{position:absolute;left:-42px;top:-70px;font-family:var(--display);font-weight:900;font-size:430px;line-height:1;letter-spacing:-.06em;
+  color:transparent;-webkit-text-stroke:1.5px rgba(98,169,255,.16);pointer-events:none;z-index:-1;font-variant-numeric:tabular-nums}
+.col{position:absolute;left:100px;display:flex;flex-direction:column}
+.bul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.bul li{position:relative;padding-left:34px;font-size:25px;line-height:1.38}
+.bul li::before{content:"";position:absolute;left:0;top:.68em;width:18px;height:2px;background:var(--accent)}
+.bul li em{font-style:normal;color:var(--accent)}
+.panel{position:absolute;border:1px solid var(--line);background:rgba(8,18,38,.72)}
+.corners::before,.corners::after{content:"";position:absolute;width:16px;height:16px;border:2px solid var(--accent);pointer-events:none}
+.corners::before{left:-2px;top:-2px;border-right:0;border-bottom:0}
+.corners::after{right:-2px;bottom:-2px;border-left:0;border-top:0}
+.tag{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+
+/* 0 title */
+.ecg{position:absolute;inset:0;width:1600px;height:900px;z-index:6;pointer-events:none}
+.ecg path{fill:none;stroke:#ffb08f;stroke-width:3;stroke-linejoin:round;filter:drop-shadow(0 0 6px rgba(255,91,31,.9)) drop-shadow(0 0 22px rgba(255,91,31,.6))}
+.s0 .col{top:190px;width:760px;gap:30px}
+.s0 h1{font-size:88px;line-height:.98}
+.s0 .sub{margin:0;font-size:29px;line-height:1.3;color:#dce6f6}
+.s0 .rule{width:80px;height:3px;background:var(--accent);transform-origin:left}
+.s0 .q{margin:0;font-size:23px;line-height:1.5;color:var(--muted);max-width:560px}
+.s0 .q em{position:relative;font-style:normal;color:var(--fg);font-weight:600;white-space:nowrap}
+.s0 .q em i{position:absolute;left:0;right:0;bottom:-3px;height:3px;background:var(--accent);transform-origin:left}
+
+/* 1 sommaire */
+.s1 .col{top:120px;width:720px;gap:28px}
+.s1 h2{font-size:92px}
+.toc{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.toc li{position:relative;display:flex;align-items:center;gap:26px;height:74px;font-size:27px;border-bottom:1px solid var(--line)}
+.toc b{font-family:var(--mono);font-weight:500;font-size:16px;letter-spacing:.1em;color:var(--accent);width:58px}
+.toc li.hot{color:var(--accent)}
+
+/* 2 pourquoi */
+.s2 .room{left:260px;top:0;height:900px;opacity:.5;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 48%);mask-image:linear-gradient(90deg,transparent 0,#000 48%)}
+.s2 .col{top:150px;width:640px;gap:58px}
+.s2 h2{font-size:80px}
+.s2 .bul{gap:30px}
+
+/* 3 comment l'IA voit */
+.s3 .col{top:64px;gap:0}
+.s3 h2{font-size:60px}
+.steps{position:absolute;left:100px;top:170px;width:1400px;display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+.step{display:flex;flex-direction:column;gap:6px;padding-bottom:12px;position:relative;color:var(--muted);transition:color .3s}
+.step b{font-family:var(--mono);font-weight:500;font-size:14px;letter-spacing:.12em;color:var(--accent)}
+.step span{font-family:var(--display);font-weight:600;font-size:19px;line-height:1.2}
+.step i{position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--line)}
+.step i::after{content:"";position:absolute;inset:0;background:var(--accent);transform-origin:left;transform:scaleX(var(--f,0))}
+.step.on{color:var(--fg)}
+.viewer{left:100px;top:290px;width:440px;height:404px;overflow:hidden}
+.viewer img{left:0;top:0;width:100%;height:100%;object-fit:contain}
+.viewer .vt{position:absolute;left:12px;top:10px;z-index:3}
+.viewer .vb{position:absolute;right:12px;bottom:10px;z-index:3;text-align:right}
+.beam{position:absolute;left:0;right:0;top:0;height:2px;opacity:0;z-index:2;background:linear-gradient(90deg,transparent,rgba(160,210,255,1),transparent);box-shadow:0 0 18px 5px rgba(98,169,255,.55)}
+.kern{position:absolute;left:0;top:0;width:66px;height:66px;z-index:3;opacity:0;border:2px solid var(--accent);
+  background:linear-gradient(var(--accent),var(--accent)) 33.3% 0/1px 100% no-repeat,linear-gradient(var(--accent),var(--accent)) 66.6% 0/1px 100% no-repeat,
+  linear-gradient(var(--accent),var(--accent)) 0 33.3%/100% 1px no-repeat,linear-gradient(var(--accent),var(--accent)) 0 66.6%/100% 1px no-repeat,rgba(255,91,31,.12);
+  box-shadow:0 0 20px rgba(255,91,31,.5)}
+.roi{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;z-index:3;opacity:0;border:2px dashed var(--accent);border-radius:50%;box-shadow:0 0 30px rgba(255,91,31,.45)}
+.fmaps{position:absolute;left:580px;top:290px;display:grid;grid-template-columns:repeat(3,100px);gap:12px 12px}
+.fm{display:flex;flex-direction:column;gap:5px}
+.fm canvas{width:100px;height:92px;border:1px solid var(--line);display:block;background:#050b16}
+.fm .tag{font-size:11px}
+.gauge{position:absolute;left:580px;top:548px;display:flex;align-items:center;gap:20px}
+.gauge svg{width:146px;height:146px}
+.gauge circle{fill:none;stroke-width:9}
+.gauge .tr{stroke:var(--line)}
+.gauge .ar{stroke:var(--accent);stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;filter:drop-shadow(0 0 8px rgba(255,91,31,.7))}
+.gauge .val{position:absolute;left:0;top:0;width:146px;height:146px;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:40px;color:var(--accent);font-variant-numeric:tabular-nums}
+.gauge .gl{display:flex;flex-direction:column;gap:4px;font-family:var(--display);font-weight:700;font-size:20px;line-height:1.2}
+.gauge .gl span{font-family:var(--body);font-weight:400;font-size:17px;color:var(--muted)}
+.banner{position:absolute;left:100px;right:100px;top:742px;height:112px;display:flex;align-items:center;gap:40px;padding:0 36px;
+  background:linear-gradient(90deg,rgba(255,91,31,.14),rgba(10,23,48,.92) 40%);border-left:3px solid var(--accent)}
+.banner .big{font-family:var(--display);font-weight:800;font-size:27px;line-height:1.15;text-transform:uppercase;letter-spacing:-.01em;flex:none}
+.banner .big em{font-style:normal;color:var(--accent)}
+.banner p{margin:0;font-size:21px;line-height:1.45;color:#d4def0;max-width:620px}
+
+/* 4 usages */
+.s4 .col{top:120px;width:700px;gap:46px}
+.s4 h2{font-size:78px}
+.s4 .bul{gap:20px}
+.s4 .bul li{font-size:23px;transition:color .3s}
+.s4 .bul li.hot{color:var(--accent)}
+.frame{left:860px;top:40px;width:700px;height:820px;overflow:hidden;background:#02060d}
+.zoom{position:absolute;left:0;top:0;width:700px;height:834px;transform-origin:0 0}
+.zoom img{left:0;top:0;width:700px;height:834px}
+.reti{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;opacity:0}
+.reti i{position:absolute;width:26px;height:26px;border:2.5px solid var(--accent)}
+.reti i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0}
+.reti i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0}
+.reti i:nth-child(3){left:0;bottom:0;border-right:0;border-top:0}
+.reti i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0}
+.reti span{position:absolute;left:0;top:-24px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:#fff;background:var(--accent);padding:2px 7px;white-space:nowrap}
+.frame .hudz{position:absolute;left:14px;bottom:12px;z-index:3}
+
+/* 5 études */
+.s5 .col{top:70px;width:780px;gap:0}
+.s5 h2{font-size:64px}
+.rows{position:absolute;left:100px;top:180px;width:760px;display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:262px 1fr;align-items:center;gap:20px;padding:22px 0;border-bottom:1px solid var(--line)}
+.row .num{white-space:nowrap;font-family:var(--display);font-weight:900;font-size:70px;letter-spacing:-.04em;line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
+.row .lab{font-size:23px;line-height:1.3}
+.row .src{display:block;font-family:var(--mono);font-size:13px;color:var(--muted);margin-top:6px;letter-spacing:.04em}
+.bars{display:flex;flex-direction:column;gap:6px;margin-top:12px;width:330px}
+.bar{display:grid;grid-template-columns:96px 1fr 34px;align-items:center;gap:10px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.bar i{display:block;height:8px;background:#2a4572;transform-origin:left}
+.bar.ai i{background:var(--accent)}
+.bar em{font-style:normal;text-align:right;color:var(--fg);font-variant-numeric:tabular-nums}
+.row.gh{grid-template-columns:1fr}
+.row.gh p{margin:0;font-size:24px;line-height:1.35}
+.row.gh p span{display:block;color:var(--muted);font-size:21px}
+.row.best{grid-template-columns:auto auto auto auto;justify-content:start;gap:20px;border-bottom:0}
+.best .lbl{font-family:var(--display);font-weight:700;font-size:26px}
+.tok{font-family:var(--display);font-weight:900;font-size:38px;padding:4px 18px;border:2px solid var(--accent);color:var(--accent)}
+.tok.md{border-color:var(--scan);color:var(--scan)}
+.plus{font-family:var(--display);font-weight:900;font-size:38px}
+.s5 .cap{position:absolute;left:880px;top:770px;width:640px;text-align:center}
+
+/* 6 limites */
+.s6 .col{top:140px;width:660px;gap:56px}
+.s6 h2{font-size:86px}
+.s6 .bul{gap:30px}
+.s6 .bul li{transition:color .3s}
+.s6 .bul li.hot{color:var(--accent)}
+
+/* 7 éthique */
+.s7 .col{top:80px;width:760px;gap:34px}
+.s7 h2{font-size:80px}
+.qs{display:flex;flex-direction:column;gap:12px}
+.qc{display:grid;grid-template-columns:96px 1fr;align-items:center;min-height:100px;background:linear-gradient(90deg,rgba(18,38,72,.9),rgba(10,23,48,.5));border-left:3px solid var(--accent)}
+.qc b{font-family:var(--display);font-size:44px;font-weight:800;color:var(--accent);text-align:center;font-variant-numeric:tabular-nums}
+.qc p{margin:0;font-size:22px;line-height:1.4;padding:14px 26px 14px 0}
+.qc p span{color:var(--muted)}
+
+/* 8 conclusion */
+.s8 .col{top:110px;width:680px;gap:30px}
+.s8 h2{font-size:84px}
+.s8 .lead{margin:0;font-family:var(--display);font-weight:600;font-size:28px;line-height:1.3}
+.checks{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column}
+.checks li{display:flex;align-items:center;gap:18px;height:70px;font-size:24px;border-bottom:1px solid rgba(255,91,31,.35)}
+.checks svg{width:30px;height:30px;flex:none}
+.checks path{fill:none;stroke:var(--accent);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.checks circle{fill:none;stroke:rgba(255,91,31,.4);stroke-width:2}
+
+/* 9 merci */
+.s9 .spot{left:0;top:0;width:1600px;height:900px;opacity:.95}
+.s9 .chair{left:1100px;top:488px;height:300px}
+.s9 .col{top:250px;gap:18px}
+.s9 h2{font-size:156px}
+.s9 h2.q{font-size:94px;color:var(--accent)}
+.s9 p{margin:14px 0 0;font-size:24px;color:var(--muted)}
+
+/* corner readouts */
+.hud{position:absolute;z-index:45;font-family:var(--mono);font-size:13px;line-height:1.6;letter-spacing:.06em;color:rgba(142,164,198,.78);pointer-events:none;font-variant-numeric:tabular-nums}
+.hud.tl{left:26px;top:20px}.hud.tr{right:26px;top:20px;text-align:right}
+.hud.bl{left:26px;bottom:20px}.hud.br{right:26px;bottom:20px;text-align:right}
+.hud b{color:var(--accent);font-weight:500}
+
+/* start overlay */
+#start{position:absolute;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;background:rgba(2,5,11,.6);backdrop-filter:blur(4px)}
+#go{font-family:var(--display);font-weight:800;font-size:30px;color:var(--fg);background:rgba(10,23,48,.88);border:2px solid var(--accent);
+  padding:26px 48px 26px 38px;display:flex;align-items:center;gap:22px;cursor:pointer;box-shadow:0 0 70px rgba(255,91,31,.35)}
+#go:hover{background:rgba(255,91,31,.2)}
+#go:disabled{opacity:.55;cursor:progress}
+#go:focus-visible,#snd:focus-visible{outline:3px solid var(--scan);outline-offset:4px}
+#go svg{width:34px;height:34px;fill:var(--accent)}
+#snd{font-family:var(--mono);font-size:15px;letter-spacing:.08em;color:var(--fg);background:none;border:1px solid var(--line);padding:10px 18px;cursor:pointer}
+#start p{margin:0;font-family:var(--mono);font-size:14px;letter-spacing:.12em;color:var(--muted);text-align:center;line-height:1.8}
+
+/* controls, in real screen pixels */
+#ctrl{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:100;display:flex;align-items:center;gap:4px;
+  padding:7px 10px;background:rgba(6,14,30,.85);border:1px solid var(--line);border-radius:999px;backdrop-filter:blur(8px);transition:opacity .4s,transform .4s;max-width:calc(100vw - 32px)}
+#ctrl.idle{opacity:0;transform:translateX(-50%) translateY(14px);pointer-events:none}
+#ctrl button{all:unset;cursor:pointer;width:36px;height:36px;display:grid;place-items:center;border-radius:50%;color:var(--fg);font-family:var(--mono);font-size:12px}
+#ctrl button:hover{background:rgba(255,255,255,.08)}
+#ctrl button:focus-visible{outline:2px solid var(--accent)}
+#ctrl svg{width:18px;height:18px;fill:currentColor}
+#ctrl #speed{width:auto;padding:0 10px;border-radius:999px}
+#segs{display:flex;gap:4px;margin:0 8px;width:min(360px,38vw)}
+#segs button{all:unset;cursor:pointer;flex:1;height:16px;display:flex;align-items:center}
+#segs i{display:block;width:100%;height:3px;background:rgba(255,255,255,.18);border-radius:2px;overflow:hidden}
+#segs i b{display:block;height:100%;width:0;background:var(--accent)}
+@media (max-width:560px){#segs{width:28vw}#ctrl #speed{display:none}}
+</style>
+</head>
+<body>
+
+<div id="viewport"><div id="stage">
+  <canvas id="gl" width="1600" height="900" aria-hidden="true"></canvas>
+
+  <!-- 0 · titre -->
+  <section class="scene s0" data-hold="20" data-hud="ECG · RYTHME SINUSAL" aria-label="L’IA dans l’imagerie médicale">
+    <svg class="ecg" viewBox="0 0 1600 900" aria-hidden="true"><path id="ecgpath" d=""/></svg>
+    <div class="col">
+      <div class="kick">Radiologie · Oncologie · Éthique</div>
+      <h1><span class="ln"><span class="sc acc">L’IA</span></span><span class="ln"><span class="sc">dans l’imagerie</span></span><span class="ln"><span class="sc">médicale</span></span></h1>
+      <p class="sub">Détection assistée de tumeurs,<br>fiabilité et questions éthiques</p>
+      <span class="rule"></span>
+      <p class="q">L’intelligence artificielle peut-elle rendre le <em>diagnostic des cancers<i></i></em> plus fiable, et à quelles conditions ?</p>
+    </div>
+  </section>
+
+  <!-- 1 · sommaire -->
+  <section class="scene s1" data-hold="18" data-hud="7 COUPES · PAS 5 mm" aria-label="Sommaire">
+    <div class="col">
+      <h2><span class="ln"><span class="sc">Sommaire</span></span></h2>
+      <ol class="toc">
+        <li><b>01</b>Pourquoi l’IA en radiologie ?</li>
+        <li><b>02</b>Comment l’IA « voit » une image ?</li>
+        <li><b>03</b>Usages concrets aujourd’hui</li>
+        <li><b>04</b>Ce que disent les études</li>
+        <li><b>05</b>Les limites techniques</li>
+        <li><b>06</b>Les questions éthiques</li>
+        <li><b>07</b>Conclusion</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 2 · pourquoi -->
+  <section class="scene s2" data-hold="20" data-hud="FLUX D’IMAGES ↑" aria-label="Pourquoi l’IA en radiologie ?">
+    <img class="room bgimg" src="img/room.webp" alt="Un radiologue seul devant plusieurs écrans d’imagerie">
+    <div class="col">
+      <span class="chap">01</span>
+      <h2><span class="ln"><span class="sc">Pourquoi l’</span><span class="sc acc">IA</span></span><span class="ln"><span class="sc">en radiologie ?</span></span></h2>
+      <ul class="bul">
+        <li>Explosion du volume d’images à analyser</li>
+        <li>Pénurie de radiologues</li>
+        <li>Fatigue et risque d’erreur humaine</li>
+        <li>Un diagnostic <em>plus précoce</em> pour de meilleures chances de guérison des cancers</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 3 · comment l'IA voit -->
+  <section class="scene s3" data-hold="18" data-hud="CNN · INFÉRENCE" aria-label="Comment l’IA « voit » une image ?">
+    <div class="col">
+      <span class="chap">02</span>
+      <h2><span class="ln"><span class="sc">Comment </span><span class="sc acc">l’IA</span><span class="sc"> « voit » une image ?</span></span></h2>
+    </div>
+    <div class="steps">
+      <div class="step"><b>01</b><span>Données annotées par des médecins</span><i></i></div>
+      <div class="step"><b>02</b><span>Apprentissage deep learning (CNN)</span><i></i></div>
+      <div class="step"><b>03</b><span>Analyse d’une nouvelle image</span><i></i></div>
+      <div class="step"><b>04</b><span>Score de suspicion + zone entourée</span><i></i></div>
+    </div>
+    <div class="panel viewer corners">
+      <span class="tag vt" id="vtag">JEU D’ENTRAÎNEMENT · ANNOTÉ</span>
+      <img class="v-annot" src="img/annot.webp" alt="IRM annotées par des médecins, tumeurs entourées en orange">
+      <img class="v-scan" src="img/scan.webp" alt="Nouvelle IRM cérébrale à analyser">
+      <img class="v-hit" src="img/scanhit.webp" alt="IRM avec la zone suspecte entourée">
+      <div class="beam"></div>
+      <div class="kern"></div>
+      <div class="roi"></div>
+      <span class="tag vb">AXIAL · T1 · 512 × 512</span>
+    </div>
+    <div class="fmaps" aria-label="Cartes de caractéristiques extraites par le réseau">
+      <div class="fm"><canvas width="100" height="92"></canvas><span class="tag">Bords H</span></div>
+      <div class="fm"><canvas width="100" height="92"></canvas><span class="tag">Bords V</span></div>
+      <div class="fm"><canvas width="100" height="92"></canvas><span class="tag">Contours</span></div>
+      <div class="fm"><canvas width="100" height="92"></canvas><span class="tag">Lissage</span></div>
+      <div class="fm"><canvas width="100" height="92"></canvas><span class="tag">Seuil</span></div>
+      <div class="fm"><canvas width="100" height="92"></canvas><span class="tag">Relief</span></div>
+    </div>
+    <div class="gauge">
+      <div style="position:relative;width:146px;height:146px">
+        <svg viewBox="0 0 146 146"><circle class="tr" cx="73" cy="73" r="62"/><circle class="ar" cx="73" cy="73" r="62"/></svg>
+        <div class="val"><span><span class="pct">87</span>%</span></div>
+      </div>
+      <div class="gl">Score de suspicion<span>+ zone entourée</span></div>
+    </div>
+    <div class="banner">
+      <div class="big"><em>L’IA assiste,</em><br>elle ne remplace pas<br>le diagnostic médical.</div>
+      <p>Le radiologue conserve la décision finale en s’appuyant sur son expertise et le contexte clinique.</p>
+    </div>
+  </section>
+
+  <!-- 4 · usages -->
+  <section class="scene s4" data-hold="18" data-hud="MULTI-ORGANES · 4 ROI" aria-label="Usages concrets aujourd’hui">
+    <div class="col">
+      <span class="chap">03</span>
+      <h2><span class="ln"><span class="sc">Usages concrets</span></span><span class="ln"><span class="sc acc">aujourd’hui</span></span></h2>
+      <ul class="bul">
+        <li>Cancer du sein : mammographies assistées</li>
+        <li>Cancer du poumon : détection des nodules sur scanners</li>
+        <li>Cancer de la peau : analyse des grains de beauté</li>
+        <li>Autres usages : fractures, AVC, embolies</li>
+        <li>Des entreprises françaises : Therapixel, Glemmer</li>
+        <li>Marquage CE obligatoire pour les dispositifs médicaux IA</li>
+      </ul>
+    </div>
+    <div class="panel frame corners">
+      <div class="zoom">
+        <img src="img/usages.webp" alt="Écran montrant une mammographie, un scanner pulmonaire, un grain de beauté et une IRM cérébrale">
+        <div class="reti" style="left:140px;top:167px"><i></i><i></i><i></i><i></i><span>ROI 01 · SEIN</span></div>
+        <div class="reti" style="left:462px;top:196px"><i></i><i></i><i></i><i></i><span>ROI 02 · POUMON</span></div>
+        <div class="reti" style="left:165px;top:434px"><i></i><i></i><i></i><i></i><span>ROI 03 · PEAU</span></div>
+        <div class="reti" style="left:469px;top:459px"><i></i><i></i><i></i><i></i><span>ROI 04 · CERVEAU</span></div>
+      </div>
+      <span class="tag hudz" id="ztag">ZOOM ×1,0</span>
+    </div>
+  </section>
+
+  <!-- 5 · études -->
+  <section class="scene s5" data-hold="18" data-hud="ESSAI MASAI · n≈80 000" aria-label="Ce que disent les études">
+    <div class="col">
+      <span class="chap">04</span>
+      <h2><span class="ln"><span class="sc">Ce que disent les études</span></span></h2>
+    </div>
+    <div class="rows">
+      <div class="row ra"><span class="num"><span class="c1">+20</span> %</span><div><span class="lab">de cancers détectés</span><span class="src">ESSAI MASAI, SUÈDE, 2023</span>
+        <div class="bars"><div class="bar"><span>Lecture std.</span><i style="width:83.3%"></i><em>100</em></div><div class="bar ai"><span>Avec IA</span><i style="width:100%"></i><em>120</em></div></div></div></div>
+      <div class="row rb"><span class="num"><span class="c2">−44</span> %</span><div><span class="lab">de charge de lecture</span><span class="src">ESSAI MASAI, SUÈDE, 2023</span>
+        <div class="bars"><div class="bar"><span>Lecture std.</span><i style="width:100%"></i><em>100</em></div><div class="bar ai"><span>Avec IA</span><i style="width:56%"></i><em>56</em></div></div></div></div>
+      <div class="row gh"><p>Étude Google Health (Nature, 2020) :<span>moins de fausses alertes et erreurs</span></p></div>
+      <div class="row best"><span class="lbl">La meilleure performance :</span><span class="tok">IA</span><span class="plus">+</span><span class="tok md">médecin</span></div>
+    </div>
+    <span class="tag cap" id="cap5"></span>
+  </section>
+
+  <!-- 6 · limites -->
+  <section class="scene s6" data-hold="20" data-hud="ARTEFACT · BIAIS ?" aria-label="Les limites techniques">
+    <div class="col">
+      <span class="chap">05</span>
+      <h2><span class="ln"><span class="sc">Les limites</span></span><span class="ln"><span class="sc acc">techniques</span></span></h2>
+      <ul class="bul">
+        <li>Biais dans les données d’apprentissage</li>
+        <li>Effet « boîte noire » et manque d’explicabilité</li>
+        <li>Variabilité du matériel d’imagerie</li>
+        <li>Biais d’automatisation : le médecin suit la machine même si elle se trompe</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 7 · éthique -->
+  <section class="scene s7" data-hold="22" data-hud="RGPD · AI ACT" aria-label="Les questions éthiques">
+    <div class="col">
+      <span class="chap">06</span>
+      <h2><span class="ln"><span class="sc">Les questions</span></span><span class="ln"><span class="sc acc">éthiques</span></span></h2>
+      <div class="qs">
+        <div class="qc"><b>01</b><p>Qui est responsable en cas d’erreur liée à l’IA ?</p></div>
+        <div class="qc"><b>02</b><p>À qui appartiennent les données patients ? <span>(RGPD)</span></p></div>
+        <div class="qc"><b>03</b><p>Le patient est-il informé de l’utilisation de l’IA dans son diagnostic ?</p></div>
+        <div class="qc"><b>04</b><p>Quelles règles encadrent l’IA médicale ? <span>(AI Act européen, classification « à haut risque »)</span></p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 · conclusion -->
+  <section class="scene s8" data-hold="18" data-hud="SYNTHÈSE · 4/4" aria-label="Conclusion partielle">
+    <div class="col">
+      <span class="chap">07</span>
+      <h2><span class="ln"><span class="sc">Conclusion</span></span><span class="ln"><span class="sc acc">partielle</span></span></h2>
+      <p class="lead">Un assistant, pas un remplaçant :<br>synthèse des conditions d’une IA fiable.</p>
+      <ul class="checks">
+        <li><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="13"/><path d="M8.5 15.5 l4.2 4.2 l8.8 -9.4"/></svg>Résultats prometteurs mais encadrés</li>
+        <li><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="13"/><path d="M8.5 15.5 l4.2 4.2 l8.8 -9.4"/></svg>Des données variées et représentatives</li>
+        <li><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="13"/><path d="M8.5 15.5 l4.2 4.2 l8.8 -9.4"/></svg>Un contrôle humain indispensable</li>
+        <li><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="13"/><path d="M8.5 15.5 l4.2 4.2 l8.8 -9.4"/></svg>Un cadre légal clair et respecté</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 9 · merci -->
+  <section class="scene s9" data-hold="0" data-hud="FIN DE SÉRIE" aria-label="Merci">
+    <img class="spot bgimg" src="img/spot.webp" alt="">
+    <img class="chair" src="img/chair.webp" alt="Un fauteuil vide sous un projecteur">
+    <div class="col">
+      <h2><span class="ln"><span class="sc">Merci</span><span class="sc acc">.</span></span></h2>
+      <h2 class="q"><span class="ln"><span class="sc">Des questions ?</span></span></h2>
+      <p>Merci pour votre attention</p>
+    </div>
+  </section>
+
+  <canvas id="grain" width="400" height="225" aria-hidden="true"></canvas>
+  <div class="fx fx-vig"></div>
+  <div class="fx fx-lines"></div>
+  <div class="fx-sweep"></div>
+  <div class="fx-flash"></div>
+  <div class="hud tl">IA-IMG · <b>ONCO</b><br><span id="h-seq">SÉQ. 01/10</span></div>
+  <div class="hud tr"><span id="h-mode">ECG · RYTHME SINUSAL</span><br>WL 40 · WW 400</div>
+  <div class="hud bl"><span id="h-title">L’IA dans l’imagerie médicale</span></div>
+  <div class="hud br">T+ <span id="h-time">00:00</span><br>512 × 512 · 3,0 mm</div>
+
+  <div id="start">
+    <button id="go" type="button" disabled><svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z"/></svg><span id="golbl">Préparation…</span></button>
+    <button id="snd" type="button" aria-pressed="true">♪ Son : activé</button>
+    <p>DÉFILEMENT AUTOMATIQUE · ≈ 4 MIN 30<br>ESPACE = PAUSE · ← → NAVIGUER · F = PLEIN ÉCRAN · M = SON</p>
+  </div>
+</div></div>
+
+<div id="ctrl" role="toolbar" aria-label="Contrôles de la présentation">
+  <button id="prev" type="button" aria-label="Diapositive précédente"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+  <button id="play" type="button" aria-label="Lecture"><svg viewBox="0 0 24 24"><path id="playicon" d="M7 4.5v15l12.5-7.5z"/></svg></button>
+  <button id="next" type="button" aria-label="Diapositive suivante"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+  <div id="segs"></div>
+  <button id="speed" type="button" aria-label="Vitesse">1×</button>
+  <button id="mute" type="button" aria-label="Couper le son"><svg viewBox="0 0 24 24"><path id="muteicon" d="M4 9h4l5-4v14l-5-4H4zM16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg></button>
+  <button id="fs" type="button" aria-label="Plein écran"><svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4zM14 4h6v6h-2V6h-4zM4 14h2v4h4v2H4zM18 14h2v6h-6v-2h4z"/></svg></button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const stage = $('#stage');
+const scenes = $$('.scene');
+const rnd = (a = 1, b) => b === undefined ? Math.random() * a : a + Math.random() * (b - a);
+
+/* ================= stage fit ================= */
+let SS = 1, SX = 0, SY = 0;
+function fit() {
+  const w = innerWidth, h = innerHeight; SS = Math.min(w / 1600, h / 900);
+  SX = (w - 1600 * SS) / 2; SY = (h - 900 * SS) / 2;
+  stage.style.transform = `translate(${SX}px,${SY}px) scale(${SS})`;
+}
+addEventListener('resize', fit); fit();
+
+/* world units at z = 0 for a camera at z = 10, fov 40 */
+const FOV = 40, CZ = 10, WH = 2 * CZ * Math.tan(FOV * Math.PI / 360), WW = WH * 16 / 9;
+const px2w = (x, y) => [(x / 1600 - .5) * WW, -(y / 900 - .5) * WH];
+const w2px = (x, y) => [(x / WW + .5) * 1600, (-y / WH + .5) * 900];
+
+/* ================= sound (generated live, no files) ================= */
+const sfx = (() => {
+  let ac = null, master = null, on = true, droneG = null;
+  const ok = () => ac && on;
+  function init() {
+    if (ac) return;
+    try {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      master = ac.createGain(); master.gain.value = on ? .7 : 0; master.connect(ac.destination);
+      const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 380; f.Q.value = 7;
+      droneG = ac.createGain(); droneG.gain.value = 0; droneG.gain.linearRampToValueAtTime(.055, ac.currentTime + 5);
+      [[55, 'sawtooth'], [55.35, 'sawtooth'], [82.4, 'sine'], [110.2, 'triangle']].forEach(([fr, ty]) => {
+        const o = ac.createOscillator(); o.type = ty; o.frequency.value = fr; o.connect(f); o.start();
+      });
+      const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = .06; lg.gain.value = 240; l.connect(lg); lg.connect(f.frequency); l.start();
+      f.connect(droneG); droneG.connect(master);
+    } catch (e) { ac = null; }
+  }
+  function noise(d) {
+    const b = ac.createBuffer(1, ac.sampleRate * d, ac.sampleRate), c = b.getChannelData(0);
+    for (let i = 0; i < c.length; i++) c[i] = Math.random() * 2 - 1;
+    const s = ac.createBufferSource(); s.buffer = b; return s;
+  }
+  function env(g, t, peak, a, d) { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(.0001, t + a + d); }
+  return {
+    init,
+    get on() { return on; },
+    set(v) { on = v; if (master) master.gain.setTargetAtTime(v ? .7 : 0, ac.currentTime, .05); },
+    whoosh() { if (!ok()) return; const t = ac.currentTime, s = noise(1.4), bp = ac.createBiquadFilter(), g = ac.createGain();
+      bp.type = 'bandpass'; bp.Q.value = 1.4; bp.frequency.setValueAtTime(240, t); bp.frequency.exponentialRampToValueAtTime(3200, t + 1.1);
+      env(g, t, .16, .5, .8); s.connect(bp); bp.connect(g); g.connect(master); s.start(t); s.stop(t + 1.4); },
+    beep(fr = 1046, v = .12) { if (!ok()) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = fr; env(g, t, v, .005, .22); o.connect(g); g.connect(master); o.start(t); o.stop(t + .3); },
+    blip(fr = 1900) { if (!ok()) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'triangle'; o.frequency.setValueAtTime(fr, t); o.frequency.exponentialRampToValueAtTime(fr * 1.5, t + .06);
+      env(g, t, .035, .004, .08); o.connect(g); g.connect(master); o.start(t); o.stop(t + .12); },
+    glitch() { if (!ok()) return; const t = ac.currentTime, s = noise(.4), hp = ac.createBiquadFilter(), g = ac.createGain();
+      hp.type = 'highpass'; hp.frequency.value = 1800; g.gain.setValueAtTime(0, t);
+      for (let i = 0; i < 8; i++) g.gain.setValueAtTime(i % 2 ? 0 : .09, t + i * .045);
+      g.gain.setValueAtTime(0, t + .37); s.connect(hp); hp.connect(g); g.connect(master); s.start(t); s.stop(t + .4); },
+    boom() { if (!ok()) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(38, t + 1);
+      env(g, t, .3, .01, 1.3); o.connect(g); g.connect(master); o.start(t); o.stop(t + 1.4); },
+    pause(p) { if (ac) p ? ac.suspend() : ac.resume(); }
+  };
+})();
+
+/* ================= particle engine ================= */
+const N = 9000;
+const ICE = [.78, .88, 1], BLUE = [.32, .6, 1], ORANGE = [1, .36, .12], DIM = [.1, .18, .34];
+const P = (() => {
+  const nop = { ok: false, morph() {}, tint() {}, glitch: { v: 0 }, pulse() {} };
+  if (!window.THREE) return nop;
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas: $('#gl'), alpha: true, antialias: false, powerPreference: 'high-performance' }); }
+  catch (e) { return nop; }
+  const pr = Math.min(devicePixelRatio || 1, 2);
+  renderer.setPixelRatio(pr); renderer.setSize(1600, 900, false);
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(FOV, 16 / 9, .1, 100); cam.position.set(0, 0, CZ);
+  const group = new THREE.Group(); scene.add(group);
+
+  const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), size = new Float32Array(N), seed = new Float32Array(N);
+  const base = new Float32Array(N * 3), from = new Float32Array(N * 3), cBase = new Float32Array(N * 3), cFrom = new Float32Array(N * 3);
+  const disp = new Float32Array(N * 3), dir = new Float32Array(N * 3), delay = new Float32Array(N);
+  let cTo = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    size[i] = .55 + Math.pow(Math.random(), 2.2) * 1.7; seed[i] = Math.random(); delay[i] = Math.random();
+    const u = rnd(-1, 1), a = rnd(Math.PI * 2), r = Math.sqrt(1 - u * u), m = rnd(.4, 1);
+    dir[i * 3] = r * Math.cos(a) * m; dir[i * 3 + 1] = u * m; dir[i * 3 + 2] = r * Math.sin(a) * m;
+  }
+  const geo = new THREE.BufferGeometry();
+  const aPos = new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage);
+  const aCol = new THREE.BufferAttribute(col, 3).setUsage(THREE.DynamicDrawUsage);
+  geo.setAttribute('position', aPos); geo.setAttribute('acolor', aCol);
+  geo.setAttribute('asize', new THREE.BufferAttribute(size, 1)); geo.setAttribute('aseed', new THREE.BufferAttribute(seed, 1));
+  const U = { uTime: { value: 0 }, uSize: { value: 1 }, uPix: { value: pr }, uBright: { value: 1 } };
+  const mat = new THREE.ShaderMaterial({
+    uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `attribute vec3 acolor; attribute float asize; attribute float aseed;
+      uniform float uTime, uSize, uPix; varying vec3 vC;
+      void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); gl_Position = projectionMatrix * mv;
+        float tw = 0.7 + 0.3*sin(uTime*(1.3+aseed*2.4) + aseed*60.0);
+        gl_PointSize = asize * uSize * uPix * tw * (44.0 / max(0.5, -mv.z)); vC = acolor * (0.7 + 0.3*tw); }`,
+    fragmentShader: `uniform float uBright; varying vec3 vC;
+      void main(){ vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) discard;
+        float a = pow(1.0 - d*2.0, 1.7); gl_FragColor = vec4(vC * uBright * 1.25, a); }`
+  });
+  const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; group.add(pts);
+
+  let cur = null, mt0 = 0, mdur = 1, burst = 0, stag = .5, ct0 = 0, cdur = 1;
+  const glitch = { v: 0 };
+  const now = () => performance.now() / 1000;
+
+  function place(p = {}, d) {
+    const [x, y] = px2w(p.px ?? 800, p.py ?? 450), s = p.s ?? 1;
+    const o = { duration: d, ease: 'power3.inOut', overwrite: true };
+    gsap.to(group.position, { ...o, x, y, z: p.z ?? 0 });
+    gsap.to(group.scale, { ...o, x: s, y: s, z: s });
+    gsap.to(group.rotation, { ...o, x: p.rx ?? 0 });
+  }
+  function morph(sh, o = {}) {
+    if (!sh) return;
+    const inst = o.instant || RM;
+    from.set(base); cFrom.set(cBase); cTo = new Float32Array(sh.col);
+    cur = sh; mt0 = ct0 = now();
+    mdur = inst ? .001 : (o.dur ?? 2.4); cdur = inst ? .001 : (o.cdur ?? mdur * .8);
+    burst = inst ? 0 : (o.burst ?? 1.4); stag = o.stagger ?? .55;
+    gsap.to(U.uSize, { value: sh.size ?? 1, duration: inst ? 0 : mdur * .7, overwrite: true });
+    gsap.to(U.uBright, { value: sh.bright ?? 1, duration: inst ? 0 : mdur * .7, overwrite: true });
+    place(sh.place, inst ? 0 : mdur * .9);
+    if (inst) { for (let i = 0; i < N * 3; i++) { base[i] = from[i] = sh.pos[i]; cBase[i] = cFrom[i] = sh.col[i]; } }
+  }
+  // recolour without moving: fn(i, meta, c, k) edits target colours c in place
+  function tint(fn, d = .7) {
+    if (!cur) return;
+    cFrom.set(cBase); const c = fn === null ? new Float32Array(cur.col) : new Float32Array(cTo);
+    if (fn) for (let i = 0; i < N; i++) fn(i, cur.meta[i], c, i * 3, cur.col);
+    cTo = c; ct0 = now(); cdur = RM ? .001 : d;
+  }
+
+  // pointer: particles move away from the cursor
+  let mlx = 0, mly = 0, mOn = false, mt = 0, mx = 0, my = 0;
+  const v3 = new THREE.Vector3();
+  addEventListener('pointermove', e => {
+    const sx = (e.clientX - SX) / SS, sy = (e.clientY - SY) / SS;
+    const [wx, wy] = px2w(sx, sy); mlx = wx; mly = wy; mOn = true; mt = now();
+    mx = e.clientX / innerWidth - .5; my = e.clientY / innerHeight - .5;
+  });
+
+  let last = now();
+  function frame() {
+    const t = now(), dt = Math.min(.05, t - last); last = t;
+    U.uTime.value = t;
+    const sh = cur;
+    if (sh) {
+      const to = sh.pos, meta = sh.meta, k = (t - mt0) / mdur, kc = Math.min(1, (t - ct0) / cdur);
+      const ce = kc < .5 ? 2 * kc * kc : 1 - Math.pow(-2 * kc + 2, 2) / 2;
+      const drift = sh.drift ?? .03, fl = sh.flow, wv = sh.wave, G = glitch.v, fr = Math.floor(t * 14);
+      const ph = wv ? (t * wv.speed) % wv.len : 0;
+      let lx = 0, ly = 0, lz = 0, mouse = mOn && t - mt < 4 && !RM;
+      if (mouse) { group.updateMatrixWorld(); v3.set(mlx, mly, 0); group.worldToLocal(v3); lx = v3.x; ly = v3.y; lz = v3.z; }
+      const R = 1.1 / group.scale.x, R2 = R * R;
+      for (let i = 0; i < N; i++) {
+        const k3 = i * 3;
+        let p = k * (1 + stag) - delay[i] * stag; p = p < 0 ? 0 : p > 1 ? 1 : p;
+        const e = p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+        const b = Math.sin(Math.PI * e) * burst;
+        let tz = to[k3 + 2];
+        if (fl) tz = ((tz + t * fl.speed) % fl.span + fl.span) % fl.span + fl.min;
+        const bx = from[k3] + (to[k3] - from[k3]) * e + dir[k3] * b;
+        const by = from[k3 + 1] + (to[k3 + 1] - from[k3 + 1]) * e + dir[k3 + 1] * b;
+        const bz = from[k3 + 2] + (tz - from[k3 + 2]) * e + dir[k3 + 2] * b;
+        base[k3] = bx; base[k3 + 1] = by; base[k3 + 2] = bz;
+        const s = seed[i] * 6.2832;
+        let x = bx + drift * Math.sin(t * .6 + s * 3), y = by + drift * Math.cos(t * .5 + s * 5), z = bz + drift * Math.sin(t * .4 + s * 7);
+        if (mouse) {
+          const dx = x - lx, dy = y - ly, dz = z - lz, d2 = dx * dx + dy * dy + dz * dz;
+          if (d2 < R2 && d2 > 1e-6) { const d = Math.sqrt(d2), f = (R - d) / R * .09; disp[k3] += dx / d * f; disp[k3 + 1] += dy / d * f; disp[k3 + 2] += dz / d * f; }
+        }
+        disp[k3] *= .93; disp[k3 + 1] *= .93; disp[k3 + 2] *= .93;
+        x += disp[k3]; y += disp[k3 + 1]; z += disp[k3 + 2];
+        let r = cFrom[k3] + (cTo[k3] - cFrom[k3]) * ce, g = cFrom[k3 + 1] + (cTo[k3 + 1] - cFrom[k3 + 1]) * ce, bb = cFrom[k3 + 2] + (cTo[k3 + 2] - cFrom[k3 + 2]) * ce;
+        cBase[k3] = r; cBase[k3 + 1] = g; cBase[k3 + 2] = bb;
+        if (wv) { const d = meta[i] - ph, m = .55 + 2 * Math.exp(-d * d * 5); r *= m; g *= m; bb *= m; }
+        if (G > 0) {
+          const h = Math.sin(i * 12.9898 + fr * 78.233) * 43758.5453, hf = h - Math.floor(h);
+          if (hf < .06 * G) { x += (hf / (.06 * G) - .5) * 1.6 * G; r = 1; g = .45; bb = .2; }
+          else if (hf > 1 - .03 * G) { r *= .1; g *= .1; bb *= .1; }
+        }
+        pos[k3] = x; pos[k3 + 1] = y; pos[k3 + 2] = z;
+        col[k3] = r; col[k3 + 1] = g; col[k3 + 2] = bb;
+      }
+      aPos.needsUpdate = true; aCol.needsUpdate = true;
+      if (!RM) {
+        if (sh.spin) group.rotation.y += sh.spin * dt;
+        else {
+          const ry = Math.atan2(Math.sin(group.rotation.y), Math.cos(group.rotation.y));
+          const tg = (sh.sway || 0) * Math.sin(t * .45);
+          group.rotation.y = ry + (tg - ry) * Math.min(1, dt * 1.5);
+        }
+        group.rotation.z += ((sh.rock ? sh.rock * Math.sin(t * .9) : 0) - group.rotation.z) * Math.min(1, dt * 3);
+      }
+    }
+    cam.position.x += (mx * .45 - cam.position.x) * .03;
+    cam.position.y += (-my * .3 - cam.position.y) * .03;
+    cam.lookAt(0, 0, 0);
+    renderer.render(scene, cam);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  return { ok: true, morph, tint, glitch, get cur() { return cur; } };
+})();
+
+/* ================= shapes ================= */
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
+// list: [x,y,z,r,g,b,meta]
+function fromList(list, opt = {}) {
+  const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), meta = new Float32Array(N);
+  if (!list.length) list = [[0, 0, 0, .3, .5, 1, 0]];
+  shuffle(list); const M = list.length;
+  for (let i = 0; i < N; i++) {
+    const q = list[i % M], extra = i >= M, j = extra ? (opt.jit ?? .05) : 0, f = extra ? (opt.dupe ?? .3) : 1;
+    pos[i * 3] = q[0] + rnd(-j, j); pos[i * 3 + 1] = q[1] + rnd(-j, j); pos[i * 3 + 2] = q[2] + rnd(-j, j);
+    col[i * 3] = q[3] * f; col[i * 3 + 1] = q[4] * f; col[i * 3 + 2] = q[5] * f; meta[i] = q[6] || 0;
+  }
+  return Object.assign({ pos, col, meta }, opt);
+}
+const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const sc = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
+
+const S = {};
+S.brain = (() => {
+  const L = [], les = [1.05, .42, .5]; let guard = 0;
+  while (L.length < N && guard++ < 90000) {
+    const h = Math.random() < .5 ? -1 : 1, u = rnd(-1, 1), th = rnd(Math.PI * 2), r = Math.sqrt(1 - u * u);
+    const x = r * Math.cos(th), y = u, z = r * Math.sin(th);
+    if (x * h < -.2) continue;
+    const wr = 1 + .07 * Math.sin(x * 11 + z * 3) * Math.sin(y * 9 + z * 7), d = .84 + Math.random() * .16;
+    const X = (h * .62 + x * .78 * wr * d) * 1.55, Y = y * .82 * wr * d * 1.55, Z = z * 1.18 * wr * d * 1.55;
+    if (Y < -.85 && Math.abs(Z) < .6) continue;
+    const dl = Math.hypot(X - les[0], Y - les[1], Z - les[2]);
+    const c = dl < .55 ? ORANGE : sc(mixc(BLUE, ICE, Math.random()), rnd(.45, 1));
+    L.push([X, Y, Z, ...c, dl < .55 ? 1 : (X < 0 ? 2 : 3)]);
+  }
+  return fromList(L, { spin: .22, place: { px: 1170, py: 450, s: 1 } });
+})();
+
+const ecgY = x => {
+  const u = ((x + 20) % 4.4 + 4.4) % 4.4 - 2.2;
+  if (u >= -.24 && u < -.12) return -.25 * (u + .24) / .12;
+  if (u >= -.12 && u < 0) return -.25 + 2.15 * (u + .12) / .12;
+  if (u >= 0 && u < .12) return 1.9 - 2.6 * u / .12;
+  if (u >= .12 && u < .26) return -.7 + .7 * (u - .12) / .14;
+  if (u >= -1.2 && u < -.6) return .22 * Math.sin(Math.PI * (u + 1.2) / .6);
+  if (u >= .6 && u < 1.4) return .38 * Math.sin(Math.PI * (u - .6) / .8);
+  return 0;
+};
+const ecgPts = []; for (let x = -6.8; x <= 6.8; x += .01) ecgPts.push([x, ecgY(x)]);
+S.ecg = (() => {
+  const L = []; for (let i = 0; i < N; i++) { const q = ecgPts[(Math.random() * ecgPts.length) | 0]; const sp = Math.abs(q[1]) > .5;
+    L.push([q[0] + rnd(-.01, .01), q[1] + rnd(-.03, .03), rnd(-.05, .05), ...(sp ? ORANGE : sc(ICE, .8)), 0]); }
+  return fromList(L, { drift: .006, size: .8, place: { px: 800, py: 450, s: 1 } });
+})();
+S.ecgDark = Object.assign({}, S.ecg, { col: new Float32Array(N * 3) });
+
+S.slices = (() => {
+  const L = [];
+  for (let i = 0; i < N; i++) {
+    const k = i % 7, a = rnd(Math.PI * 2), ring = Math.random() < .55, rr = ring ? rnd(.96, 1) : Math.sqrt(Math.random()) * .95;
+    const wob = 1 + .08 * Math.sin(a * 5 + k);
+    L.push([Math.cos(a) * 2.3 * rr * wob, 2.55 - k * .85 + rnd(-.015, .015), Math.sin(a) * 1.5 * rr * wob, ...sc(mixc(BLUE, ICE, Math.random()), ring ? .9 : .3), k]);
+  }
+  return fromList(L, { spin: .18, size: .9, place: { px: 1170, py: 470, s: 1, rx: .5 } });
+})();
+S.tiles = (() => {
+  const L = [], K = 320, per = Math.ceil(N / K);
+  for (let t = 0; t < K; t++) {
+    const cx = rnd(-7.5, 7.5), cy = rnd(-4.3, 4.3), cz = rnd(0, 24), w = rnd(.3, .6), h = w * rnd(.75, 1), hot = Math.random() < .08 ? 1 : 0;
+    for (let j = 0; j < per; j++) {
+      const s = j / per * 4, e = s % 1; let x, y;
+      if (s < 1) { x = -w / 2 + w * e; y = -h / 2; } else if (s < 2) { x = w / 2; y = -h / 2 + h * e; } else if (s < 3) { x = w / 2 - w * e; y = h / 2; } else { x = -w / 2; y = h / 2 - h * e; }
+      L.push([cx + x, cy + y, cz, ...sc(ICE, rnd(.4, .8)), hot]);
+    }
+  }
+  return fromList(L, { flow: { speed: 2.4, span: 24, min: -18 }, drift: 0, size: .75, bright: .75, place: { px: 800, py: 450, s: 1 } });
+})();
+S.net = (() => {
+  const sizes = [6, 9, 9, 5, 1], L = [], nodes = [];
+  sizes.forEach((n, l) => { for (let j = 0; j < n; j++) nodes.push({ l, x: -3 + l * 1.5, y: (j - (n - 1) / 2) * .58 }); });
+  nodes.forEach(nd => { for (let j = 0; j < 40; j++) { const u = rnd(-1, 1), a = rnd(6.283), r = Math.sqrt(1 - u * u) * rnd(.05, .14);
+    L.push([nd.x + r * Math.cos(a), nd.y + u * .12, r * Math.sin(a), ...(nd.l === 4 ? ORANGE : sc(ICE, 1.3)), nd.l]); } });
+  const edges = []; nodes.forEach(a => nodes.forEach(b => { if (b.l === a.l + 1) edges.push([a, b]); }));
+  const per = Math.floor((N - L.length) / edges.length);
+  edges.forEach(([a, b]) => { for (let j = 0; j < per; j++) { const t = Math.random();
+    L.push([a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, rnd(-.02, .02), ...sc(BLUE, .75), a.l + t]); } });
+  return fromList(L, { wave: { speed: 1.7, len: 6 }, sway: .45, size: 1, bright: 1.2, drift: .01, place: { px: 1230, py: 500, s: .78 } });
+})();
+S.cube = (() => {
+  const L = [], h = 1.6, V = [-h, h];
+  const edges = [];
+  V.forEach(a => V.forEach(b => { edges.push([[-h, a, b], [h, a, b]]); edges.push([[a, -h, b], [a, h, b]]); edges.push([[a, b, -h], [a, b, h]]); }));
+  for (let i = 0; i < N * .55; i++) { const [p, q] = edges[i % 12], t = Math.random(); L.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t, ...ICE, 1]); }
+  for (let i = 0; i < N * .45; i++) { const ax = i % 3, sgn = Math.random() < .5 ? -h : h, p = [rnd(-h, h), rnd(-h, h), rnd(-h, h)]; p[ax] = sgn; L.push([...p, .07, .1, .17, 0]); }
+  return fromList(L, { spin: .4, size: .9, place: { px: 1170, py: 450, s: 1, rx: .45 } });
+})();
+S.check = (() => {
+  const L = [];
+  for (let i = 0; i < N * .38; i++) { const a = rnd(6.283), r = 2.15 + rnd(-.05, .05); L.push([Math.cos(a) * r, Math.sin(a) * r, rnd(-.08, .08), ...sc(mixc(BLUE, ICE, Math.random()), .9), 0]); }
+  const seg = [[-1.05, .05], [-.3, -.75], [1.25, .95]];
+  for (let i = 0; i < N * .42; i++) { const s = Math.random() < .32 ? 0 : 1, t = Math.random(), a = seg[s], b = seg[s + 1];
+    L.push([a[0] + (b[0] - a[0]) * t + rnd(-.09, .09), a[1] + (b[1] - a[1]) * t + rnd(-.09, .09), rnd(-.1, .1), ...ORANGE, 1]); }
+  for (let i = 0; i < N * .2; i++) { const u = rnd(-1, 1), a = rnd(6.283), r = rnd(2.4, 3.6), q = Math.sqrt(1 - u * u);
+    L.push([q * Math.cos(a) * r, u * r * .7, q * Math.sin(a) * r, ...sc(BLUE, .25), 0]); }
+  return fromList(L, { sway: .35, place: { px: 1170, py: 450, s: 1 } });
+})();
+S.alarms = (() => {
+  const L = [], cols = 60, rows = 30, ranks = [];
+  for (let i = 0; i < cols * rows; i++) ranks.push(Math.random());
+  for (let i = 0; i < N; i++) { const d = i % (cols * rows), cx = d % cols, cy = (d / cols) | 0;
+    L.push([(cx - cols / 2) * .1, (cy - rows / 2) * .1, rnd(-.02, .02), ...sc(BLUE, .55), ranks[d]]); }
+  return fromList(L, { sway: .3, size: .8, drift: .008, place: { px: 1190, py: 450, s: 1, rx: .25 } });
+})();
+S.duo = (() => {
+  const L = [];
+  for (let i = 0; i < N; i++) { const a = i % 2, u = rnd(-1, 1), th = rnd(6.283), q = Math.sqrt(1 - u * u), r = 1.1 * rnd(.94, 1);
+    L.push([(a ? 1.9 : -1.9) + q * Math.cos(th) * r, u * r, q * Math.sin(th) * r, ...(a ? sc(BLUE, rnd(.6, 1)) : sc(ORANGE, rnd(.6, 1))), a]); }
+  return fromList(L, { sway: .3, place: { px: 1190, py: 440, s: 1 } });
+})();
+S.fusion = (() => {
+  const L = [];
+  for (let i = 0; i < N; i++) { const a = i % 2, u = rnd(6.283), v = rnd(6.283), R = 1.45, r = .16 * Math.sqrt(Math.random());
+    const x = (R + r * Math.cos(v)) * Math.cos(u), y = (R + r * Math.cos(v)) * Math.sin(u), z = r * Math.sin(v);
+    L.push(a ? [x + .72, z, y, ...sc(BLUE, rnd(.6, 1)), 1] : [x - .72, y, z, ...sc(ORANGE, rnd(.6, 1)), 0]); }
+  return fromList(L, { spin: .5, place: { px: 1190, py: 440, s: 1, rx: .35 } });
+})();
+S.cone = (() => {
+  const L = [], [ax, ay] = px2w(1240, -60), [, by] = px2w(1240, 800), R = 240 / 1600 * WW;
+  for (let i = 0; i < N; i++) { const t = Math.pow(Math.random(), .7), r = t * R * Math.sqrt(Math.random()), a = rnd(6.283);
+    L.push([ax + r * Math.cos(a), ay + (by - ay) * t, r * Math.sin(a) * .6, ...sc(ICE, rnd(.15, .5)), 0]); }
+  return fromList(L, { drift: .14, size: .7, bright: .8, place: { px: 800, py: 450, s: 1 } });
+})();
+S.dust = (() => {
+  const L = []; for (let i = 0; i < N; i++) L.push([rnd(-8, 8), rnd(-4.5, 4.5), rnd(-8, 2), ...sc(mixc(BLUE, ICE, Math.random()), rnd(.1, .35)), 0]);
+  return fromList(L, { drift: .25, size: .7, spin: .015, place: { px: 800, py: 450, s: 1 } });
+})();
+
+// shapes drawn from text and from the deck's own images (built once fonts and images are ready)
+function textShape(str, h, colorAt, opt) {
+  const c = document.createElement('canvas'); c.width = 1500; c.height = 420;
+  const g = c.getContext('2d'); g.font = '900 300px Archivo, "Arial Black", sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'center';
+  g.fillStyle = '#fff'; g.fillText(str, 750, 215);
+  const W = g.measureText(str).width, d = g.getImageData(0, 0, 1500, 420).data, L = [], k = h / 300;
+  for (let y = 0; y < 420; y += 3) for (let x = 0; x < 1500; x += 3) if (d[(y * 1500 + x) * 4 + 3] > 128)
+    L.push([(x - 750 + rnd(-1, 1)) * k, -(y - 215 + rnd(-1, 1)) * k, rnd(-.12, .12), ...colorAt((x - (750 - W / 2)) / W), 0]);
+  return fromList(L, Object.assign({ drift: .012, size: .8, jit: .03 }, opt));
+}
+function imageShape(img, w, opt = {}) {
+  const cw = 230, ch = Math.round(cw * img.naturalHeight / img.naturalWidth);
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  const g = c.getContext('2d'); g.drawImage(img, 0, 0, cw, ch);
+  const d = g.getImageData(0, 0, cw, ch).data, L = [], hU = w * ch / cw;
+  for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+    const q = (y * cw + x) * 4, r = d[q], gg = d[q + 1], b = d[q + 2], a = d[q + 3] / 255, lum = (.3 * r + .59 * gg + .11 * b) / 255;
+    const wgt = opt.alpha ? a * (.25 + lum * 1.4) : lum * a;
+    if (wgt < (opt.th ?? .16) || Math.random() > Math.min(1, wgt * 1.5)) continue;
+    const hot = r > 110 && r > gg * 1.35 && r > b * 1.6;
+    const cc = hot ? ORANGE : sc(mixc(BLUE, ICE, Math.min(1, lum * 1.6)), Math.min(1, .35 + lum * 1.2));
+    L.push([(x / cw - .5) * w + rnd(-.01, .01), -(y / ch - .5) * hU, (lum - .5) * (opt.depth ?? 1) + rnd(-.04, .04), ...cc, hot ? 1 : (x < cw / 2 ? 2 : 3)]);
+  }
+  return fromList(L, Object.assign({ drift: .015, size: .85 }, opt));
+}
+const loadImg = src => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+
+/* feature maps: real convolutions computed on the scan */
+function featureMaps(img) {
+  const W = 100, H = 92, cv = $$('.fm canvas');
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.drawImage(img, 0, 0, W, H);
+  let src;
+  try { src = g.getImageData(0, 0, W, H).data; } catch (e) {
+    const f = ['grayscale(1) contrast(3)', 'grayscale(1) invert(1) contrast(2)', 'grayscale(1) contrast(6) brightness(.8)', 'grayscale(1) blur(2px)', 'grayscale(1) contrast(12)', 'grayscale(1) sepia(1) hue-rotate(170deg) contrast(2)'];
+    cv.forEach((o, i) => { const x = o.getContext('2d'); x.filter = f[i]; x.drawImage(img, 0, 0, W, H); }); return;
+  }
+  const L = new Float32Array(W * H); for (let i = 0; i < W * H; i++) L[i] = (.3 * src[i * 4] + .59 * src[i * 4 + 1] + .11 * src[i * 4 + 2]) / 255;
+  const at = (x, y) => L[Math.min(H - 1, Math.max(0, y)) * W + Math.min(W - 1, Math.max(0, x))];
+  const conv = k => { const o = new Float32Array(W * H); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let s = 0;
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) s += k[(j + 1) * 3 + i + 1] * at(x + i, y + j); o[y * W + x] = s; } return o; };
+  const sx = conv([-1, 0, 1, -2, 0, 2, -1, 0, 1]), sy = conv([-1, -2, -1, 0, 0, 0, 1, 2, 1]);
+  const maps = [
+    sy.map(v => Math.abs(v) * 1.6), sx.map(v => Math.abs(v) * 1.6),
+    sx.map((v, i) => Math.hypot(v, sy[i]) * 1.4),
+    conv([1, 2, 1, 2, 4, 2, 1, 2, 1].map(v => v / 16)).map(v => v * 1.1),
+    L.map(v => v > .42 ? 1 : 0),
+    conv([-2, -1, 0, -1, 1, 1, 0, 1, 2]).map(v => v * .5 + .25)
+  ];
+  const stops = [[3, 7, 15], [24, 58, 120], [98, 169, 255], [255, 226, 210], [255, 91, 31]];
+  const cmap = v => { v = Math.max(0, Math.min(1, v)) * 4; const i = Math.min(3, v | 0), t = v - i, a = stops[i], b = stops[i + 1]; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; };
+  maps.forEach((m, n) => { const x = cv[n].getContext('2d'), id = x.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) { const [r, gg, b] = cmap(m[i]); id.data[i * 4] = r; id.data[i * 4 + 1] = gg; id.data[i * 4 + 2] = b; id.data[i * 4 + 3] = 255; }
+    x.putImageData(id, 0, 0); });
+}
+
+/* ECG path for the SVG, built from the same curve as the particles */
+const ecgPath = $('#ecgpath');
+ecgPath.setAttribute('d', ecgPts.map((q, i) => { const [x, y] = w2px(q[0], q[1]); return (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1); }).join(''));
+const ecgLen = ecgPath.getTotalLength();
+const qrsFrac = (() => { // where along the path the three spikes sit
+  const out = []; let acc = 0, prev = null; const lens = [];
+  ecgPts.forEach(q => { const p = w2px(q[0], q[1]); if (prev) acc += Math.hypot(p[0] - prev[0], p[1] - prev[1]); lens.push(acc); prev = p; });
+  ecgPts.forEach((q, i) => { if (q[1] > 1.85 && (!out.length || lens[i] / acc - out[out.length - 1] > .05)) out.push(lens[i] / acc); });
+  return out;
+})();
+
+let ready = (async () => {
+  try { await Promise.race([document.fonts.load('900 300px Archivo'), new Promise(r => setTimeout(r, 2500))]); } catch (e) {}
+  const [scale, brain3d, scan] = await Promise.all(['img/scale.webp', 'img/brain3d.webp', 'img/scan.webp'].map(loadImg));
+  try { S.p20 = textShape('+20%', 2.1, () => ORANGE, { place: { px: 1200, py: 440, s: 1 }, sway: .35 }); } catch (e) { S.p20 = S.duo; }
+  try { S.m44 = textShape('−44%', 2.1, u => u < .22 ? ICE : ORANGE, { place: { px: 1200, py: 440, s: 1 }, sway: .35 }); } catch (e) { S.m44 = S.duo; }
+  try { S.merci = textShape('Merci.', 2.3, u => u > .88 ? ORANGE : ICE, { place: { px: 800, py: 430, s: 1 }, sway: .2 }); } catch (e) { S.merci = S.dust; }
+  try { S.mri = brain3d ? imageShape(brain3d, 4.4, { depth: 1.4, place: { px: 1170, py: 440, s: 1 }, sway: .5 }) : S.brain; } catch (e) { S.mri = S.brain; }
+  try { S.scale = scale ? imageShape(scale, 3.6, { alpha: true, th: .12, depth: .5, place: { px: 1210, py: 470, s: 1 }, rock: .045, sway: .35 }) : S.check; } catch (e) { S.scale = S.check; }
+  if (scan) featureMaps(scan);
+})();
+
+/* ================= animation helpers ================= */
+const Y = RM ? 0 : 1;
+$$('.sc').forEach(e => e.dataset.t = e.textContent);
+const GLY = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&@<>/=+*';
+const esc = c => c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '&' ? '&amp;' : c;
+function scramble(tl, el, at, d) {
+  const leaves = $$('.sc', el), total = leaves.reduce((n, e) => n + e.dataset.t.length, 0) || 1;
+  let t = at;
+  if (!RM) tl.call(() => leaves.forEach(e => { e.innerHTML = [...e.dataset.t].map(c => `<span class="z">${esc(c)}</span>`).join(''); }), null, at);
+  leaves.forEach(e => {
+    const txt = e.dataset.t, dd = d * txt.length / total, o = { p: 0 };
+    if (RM) { tl.from(e, { opacity: 0, duration: .3 }, t); }
+    else tl.to(o, { p: 1, duration: dd, ease: 'none',
+      onStart: () => { e.innerHTML = [...txt].map(c => `<span class="z">${esc(c)}</span>`).join(''); },
+      onUpdate: () => { const n = txt.length, head = o.p * (n + 5); let s = '';
+        for (let i = 0; i < n; i++) { const c = txt[i];
+          s += (c === ' ' || i < head - 5) ? esc(c) : i < head ? `<span class="g">${GLY[(Math.random() * GLY.length) | 0]}</span>` : `<span class="z">${esc(c)}</span>`; }
+        e.innerHTML = s; },
+      onComplete: () => { e.textContent = txt; } }, t);
+    t += dd;
+  });
+}
+const titleIn = (tl, el, at = 0, d = 1.1) => {
+  tl.from($$('.ln > span', el), { yPercent: 105 * Y, duration: .9, ease: 'power4.out', stagger: .1 }, at);
+  scramble(tl, el.querySelector('h1, h2') ? el : el, at, d);
+};
+const rise = (tl, t, at, o = {}) => tl.from(t, Object.assign({ y: 26 * Y, opacity: 0, filter: RM ? 'none' : 'blur(8px)', duration: .8, ease: 'power3.out', stagger: .14 }, o), at);
+const chapIn = (tl, el, at = 0) => { const c = $('.chap', el); if (c) tl.from(c, { x: -80 * Y, opacity: 0, duration: 1.8, ease: 'power3.out' }, at); };
+const count = (tl, node, a, b, at, d = 1.6, fmt = v => Math.round(v)) => { const o = { v: a };
+  tl.to(o, { v: b, duration: d, ease: 'power2.out', onUpdate: () => node.textContent = fmt(o.v) }, at); };
+const draw = (tl, paths, at, d = .8, o = {}) => {
+  paths.forEach(p => { const L = p.getTotalLength(); p.style.strokeDasharray = L; p.style.strokeDashoffset = L; });
+  tl.to(paths, Object.assign({ strokeDashoffset: 0, duration: d, ease: 'power2.inOut', stagger: .15 }, o), at);
+};
+const call = (tl, fn, at) => tl.call(fn, null, at);
+const M = (sh, o) => () => P.morph(typeof sh === 'string' ? S[sh] : sh, o);
+let amb = [];
+const ambient = t => { if (RM) { t.kill(); return; } amb.push(t); };
+const hot = (els, i) => els.forEach((e, j) => e.classList.toggle('hot', j === i));
+
+/* ================= scenes ================= */
+const builds = [
+  // 0 · titre: ECG → brain
+  (tl, el) => {
+    call(tl, M('ecgDark', { instant: true }), 0);
+    draw(tl, [ecgPath], .2, 2.2, { ease: 'none' });
+    qrsFrac.forEach(f => call(tl, () => sfx.beep(1046, .1), .2 + f * 2.2));
+    call(tl, M('ecg', { dur: .35, burst: 0, stagger: 0 }), 2.2);
+    tl.to(ecgPath, { opacity: 0, duration: .5 }, 2.35);
+    call(tl, () => { P.morph(S.brain, { dur: 3, burst: 2.6, stagger: .7 }); sfx.boom(); }, 2.6);
+    rise(tl, $('.kick', el), 3.1, { filter: 'none' });
+    titleIn(tl, el, 3.3, 1.6);
+    rise(tl, $('.sub', el), 4.6);
+    tl.from($('.rule', el), { scaleX: 0, duration: .8, ease: 'power3.inOut' }, 5);
+    rise(tl, $('.q', el), 5.3);
+    tl.from($('.q em i', el), { scaleX: 0, duration: .9, ease: 'power3.inOut' }, 6.3);
+    call(tl, () => P.tint((i, m, c, k) => { if (m === 1) { c[k] = 1; c[k + 1] = .55; c[k + 2] = .3; } }, .6), 6.4);
+    call(tl, () => P.tint((i, m, c, k, b) => { c[k] = b[k]; c[k + 1] = b[k + 1]; c[k + 2] = b[k + 2]; }, 1.2), 7.2);
+  },
+  // 1 · sommaire: 7 CT slices
+  (tl, el) => {
+    call(tl, M('slices', { dur: 2.4, burst: 1.6 }), 0);
+    titleIn(tl, el, .2, .7);
+    const li = $$('.toc li', el);
+    li.forEach((l, i) => {
+      const at = 1 + i * .55;
+      rise(tl, l, at, { x: -30 * Y, y: 0 });
+      call(tl, () => { hot(li, i); sfx.blip(1500 + i * 120); P.tint((j, m, c, k, b) => { const on = m === i; c[k] = on ? 1 : b[k] * .7; c[k + 1] = on ? .36 : b[k + 1] * .7; c[k + 2] = on ? .12 : b[k + 2] * .7; }, .3); }, at + .1);
+    });
+    call(tl, () => { hot(li, -1); P.tint(null, .8); }, 1 + 7 * .55 + .2);
+  },
+  // 2 · pourquoi: a flood of images
+  (tl, el) => {
+    call(tl, M('tiles', { dur: 2.6, burst: 2 }), 0);
+    tl.from($('.room', el), { opacity: 0, scale: 1.08, duration: 2.4, ease: 'power2.out' }, 0);
+    chapIn(tl, el, 0);
+    titleIn(tl, el, .2, 1);
+    const li = $$('.bul li', el);
+    [1.4, 2.6, 3.8, 5.0].forEach((at, i) => { rise(tl, li[i], at, { x: -30 * Y, y: 0 }); call(tl, () => sfx.blip(), at); });
+    call(tl, () => { sfx.glitch(); gsap.fromTo(P.glitch, { v: 1 }, { v: 0, duration: 1.4, ease: 'power2.in' }); }, 3.85);
+    call(tl, () => P.tint((i, m, c, k) => { if (m === 1) { c[k] = 1; c[k + 1] = .36; c[k + 2] = .12; } }, .8), 5.1);
+    call(tl, () => ambient(gsap.to($('.room', el), { x: -40, duration: 18, ease: 'none' })), 2.4);
+  },
+  // 3 · comment l'IA voit: annotated data → network → new image → score
+  (tl, el) => {
+    const steps = $$('.step', el), fm = $$('.fm', el), vt = $('#vtag');
+    const setStep = i => { steps.forEach((s, j) => s.classList.toggle('on', j === i)); sfx.blip(1400); };
+    const fill = (i, at, d) => tl.fromTo(steps[i], { '--f': 0 }, { '--f': 1, duration: d, ease: 'none' }, at);
+    call(tl, M('dust', { dur: 1.6, burst: .6 }), 0);
+    chapIn(tl, el, 0);
+    titleIn(tl, el, .1, 1);
+    rise(tl, steps, .7, { filter: 'none', stagger: .08 });
+    tl.from($('.viewer', el), { opacity: 0, scale: .94, duration: .8, ease: 'power3.out' }, 1.1);
+    gsap.set([$('.v-scan', el), $('.v-hit', el), $('.gauge', el), $('.banner', el), $('.kern', el), $('.roi', el), ...fm], { opacity: 0 });
+    // 01 annotated data
+    call(tl, () => { setStep(0); vt.textContent = 'JEU D’ENTRAÎNEMENT · ANNOTÉ'; }, 1.2);
+    fill(0, 1.2, 2.2);
+    tl.fromTo($('.v-annot', el), { filter: 'brightness(1)' }, { filter: 'brightness(1.6) saturate(1.6)', duration: .4, repeat: 3, yoyo: true }, 1.8);
+    // 02 learning: images fly into the network
+    call(tl, () => { setStep(1); P.morph(S.net, { dur: 2.2, burst: 1.4 }); sfx.whoosh(); }, 3.4);
+    fill(1, 3.4, 3);
+    tl.to($('.v-annot', el), { x: 520 * Y, scale: .25, opacity: 0, duration: 1.1, ease: 'power3.in' }, 3.5);
+    call(tl, () => { vt.textContent = 'APPRENTISSAGE · ÉPOQUE 50/50'; }, 3.6);
+    // 03 new image: scan, kernel, feature maps
+    call(tl, () => { setStep(2); vt.textContent = 'NOUVELLE IMAGE · ANALYSE'; }, 6.4);
+    fill(2, 6.4, 4);
+    tl.to($('.v-scan', el), { opacity: 1, duration: .6 }, 6.4);
+    tl.fromTo($('.viewer .beam', el), { y: 0, opacity: 1 }, { y: 404, duration: 1.6, ease: 'none' }, 6.6).set($('.viewer .beam', el), { opacity: 0 });
+    const kp = []; for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) kp.push({ x: 70 + (r % 2 ? 3 - c : c) * 90, y: 60 + r * 110 });
+    tl.set($('.kern', el), { opacity: 1, x: kp[0].x, y: kp[0].y }, 7.4);
+    kp.slice(1).forEach((p, i) => tl.to($('.kern', el), { x: p.x, y: p.y, duration: .22, ease: 'power2.inOut' }, 7.5 + i * .24));
+    tl.to($('.kern', el), { opacity: 0, duration: .3 }, 10.2);
+    fm.forEach((f, i) => { tl.fromTo(f, { opacity: 0, scale: .6 }, { opacity: 1, scale: 1, duration: .45, ease: 'back.out(2)' }, 7.6 + i * .42); call(tl, () => sfx.blip(2100 + i * 90), 7.6 + i * .42); });
+    // 04 score
+    call(tl, () => { setStep(3); vt.textContent = 'RÉSULTAT · ZONE SUSPECTE'; sfx.beep(880, .14); }, 10.4);
+    fill(3, 10.4, 2.6);
+    tl.fromTo('.fx-flash', { opacity: .6 }, { opacity: 0, duration: .5 }, 10.4);
+    tl.to($('.v-scan', el), { opacity: 0, duration: .2 }, 10.4).to($('.v-hit', el), { opacity: 1, duration: .2 }, 10.4);
+    tl.fromTo($('.roi', el), { opacity: 0, scale: 2.2, left: 147, top: 227 }, { opacity: 1, scale: 1, duration: .6, ease: 'power3.out' }, 10.7);
+    tl.to($('.gauge', el), { opacity: 1, duration: .5 }, 10.6);
+    const arc = $('.ar', el), C = 2 * Math.PI * 62;
+    tl.fromTo(arc, { strokeDasharray: C, strokeDashoffset: C }, { strokeDashoffset: C * (1 - .87), duration: 1.8, ease: 'power2.out' }, 10.7);
+    count(tl, $('.pct', el), 0, 87, 10.7, 1.8);
+    call(tl, () => P.tint((i, m, c, k) => { if (m >= 4) { c[k] = 1; c[k + 1] = .4; c[k + 2] = .15; } }, .5), 11);
+    call(tl, () => sfx.beep(1318, .12), 12.5);
+    // takeaway
+    tl.fromTo($('.banner', el), { opacity: 0, y: 30 * Y }, { opacity: 1, y: 0, duration: .9, ease: 'power3.out' }, 13.1);
+    call(tl, () => steps.forEach(s => s.classList.remove('on')), 13.1);
+  },
+  // 4 · usages: camera zooms into each organ
+  (tl, el) => {
+    call(tl, M('dust', { dur: 2, burst: .8 }), 0);
+    chapIn(tl, el, 0);
+    titleIn(tl, el, .2, 1);
+    tl.from($('.frame', el), { opacity: 0, x: 80 * Y, duration: 1.2, ease: 'power3.out' }, .2);
+    const li = $$('.bul li', el), rt = $$('.reti', el), zoom = $('.zoom', el), zt = $('#ztag');
+    const roi = [[140, 167], [462, 196], [165, 434], [469, 459]], Z = 1.9;
+    li.forEach((l, i) => {
+      const at = 1.3 + i * 1.5;
+      rise(tl, l, at, { x: -30 * Y, y: 0 });
+      if (i < 4) {
+        const [x, y] = roi[i];
+        tl.to(zoom, { scale: Z, x: 350 - x * Z, y: 410 - y * Z, duration: 1, ease: 'power3.inOut' }, at);
+        tl.fromTo(rt[i], { opacity: 0, scale: 2 }, { opacity: 1, scale: 1, duration: .5, ease: 'power3.out' }, at + .7);
+        call(tl, () => { hot(li, i); sfx.beep(1568, .06); zt.textContent = `ZOOM ×1,9 · ROI 0${i + 1}`; }, at + .7);
+      } else if (i === 4) {
+        tl.to(zoom, { scale: 1, x: 0, y: 0, duration: 1.1, ease: 'power3.inOut' }, at - .3);
+        call(tl, () => { hot(li, -1); zt.textContent = 'ZOOM ×1,0 · 4 ROI'; }, at - .3);
+      }
+    });
+  },
+  // 5 · études: the numbers, in particles
+  (tl, el) => {
+    const cap = $('#cap5');
+    call(tl, M('p20', { dur: 2.4, burst: 1.8 }), 0);
+    chapIn(tl, el, 0);
+    titleIn(tl, el, .1, 1);
+    rise(tl, $('.ra', el), .9, { filter: 'none' });
+    count(tl, $('.c1', el), 0, 20, 1, 1.4, v => '+' + Math.round(v));
+    tl.from($$('.ra .bar i', el), { scaleX: 0, duration: 1, stagger: .2, ease: 'power3.out' }, 1.6);
+    call(tl, () => { cap.textContent = 'CANCERS DÉTECTÉS · DÉPISTAGE DU SEIN'; sfx.boom(); }, .4);
+    call(tl, () => { P.morph(S.m44, { dur: 2.2, burst: 1.6 }); cap.textContent = 'CHARGE DE LECTURE DES RADIOLOGUES'; sfx.whoosh(); }, 4);
+    rise(tl, $('.rb', el), 4.2, { filter: 'none' });
+    count(tl, $('.c2', el), 0, 44, 4.3, 1.4, v => '−' + Math.round(v));
+    tl.from($$('.rb .bar i', el), { scaleX: 0, duration: 1, stagger: .2, ease: 'power3.out' }, 4.9);
+    call(tl, () => { P.morph(S.alarms, { dur: 2.2, burst: 1.2 }); cap.textContent = 'POINTS ORANGE = FAUSSES ALERTES (ILLUSTRATION)'; }, 7.4);
+    call(tl, () => P.tint((i, m, c, k) => { if (m < .09) { c[k] = 1; c[k + 1] = .36; c[k + 2] = .12; } }, .4), 9.4);
+    rise(tl, $('.gh', el), 7.6, { filter: 'none' });
+    call(tl, () => P.tint((i, m, c, k, b) => { const o = m < .03; c[k] = o ? 1 : b[k]; c[k + 1] = o ? .36 : b[k + 1]; c[k + 2] = o ? .12 : b[k + 2]; }, 1.4), 10.4);
+    call(tl, () => { P.morph(S.duo, { dur: 1.8, burst: 1 }); cap.textContent = 'IA  +  MÉDECIN'; }, 11.8);
+    rise(tl, $('.best .lbl', el), 11.9, { filter: 'none' });
+    tl.from($$('.tok', el)[0], { x: 120 * Y, opacity: 0, duration: .7, ease: 'back.out(1.6)' }, 12.4);
+    tl.from($$('.tok', el)[1], { x: 180 * Y, opacity: 0, duration: .7, ease: 'back.out(1.6)' }, 12.6);
+    tl.from($('.plus', el), { scale: 0, rotate: 180, duration: .6, ease: 'back.out(2)' }, 13);
+    call(tl, () => { P.morph(S.fusion, { dur: 2, burst: .8 }); sfx.beep(784, .1); setTimeout(() => sfx.beep(1175, .1), 160); }, 13.4);
+    tl.to($$('.tok', el), { boxShadow: '0 0 34px rgba(255,91,31,.5)', duration: .6 }, 13.6);
+  },
+  // 6 · limites: real MRI in particles → bias → black box
+  (tl, el) => {
+    const li = $$('.bul li', el);
+    call(tl, M('mri', { dur: 2.6, burst: 1.6 }), 0);
+    chapIn(tl, el, 0);
+    titleIn(tl, el, .2, 1);
+    const at = [1.6, 3.9, 6.1, 8.2];
+    li.forEach((l, i) => { rise(tl, l, at[i], { x: -30 * Y, y: 0 }); call(tl, () => hot(li, i), at[i]); });
+    call(tl, () => P.tint((i, m, c, k, b) => { const f = m === 2 ? .12 : 1.1; c[k] = b[k] * f; c[k + 1] = b[k + 1] * f; c[k + 2] = b[k + 2] * f; }, 1), 1.8);
+    call(tl, () => { P.morph(S.cube, { dur: 2, burst: 1.2 }); sfx.glitch(); gsap.fromTo(P.glitch, { v: 1.2 }, { v: 0, duration: 1.2 }); }, 4);
+    call(tl, () => { sfx.glitch(); gsap.timeline().to(P.glitch, { v: .9, duration: .1 }).to(P.glitch, { v: .2, duration: .3 }).to(P.glitch, { v: 1, duration: .1 }).to(P.glitch, { v: 0, duration: .9 }); }, 6.2);
+    call(tl, () => { P.tint((i, m, c, k) => { if (m === 1) { c[k] = 1; c[k + 1] = .36; c[k + 2] = .12; } }, .8); sfx.beep(330, .1); }, 8.4);
+    call(tl, () => hot(li, -1), 10.4);
+  },
+  // 7 · éthique: the scales of justice, in particles
+  (tl, el) => {
+    call(tl, M('scale', { dur: 2.6, burst: 1.6 }), 0);
+    chapIn(tl, el, 0);
+    titleIn(tl, el, .2, 1);
+    $$('.qc', el).forEach((q, i) => {
+      const at = 1.4 + i * 1.3;
+      tl.from(q, { opacity: 0, x: -50 * Y, duration: .7, ease: 'power3.out' }, at);
+      tl.from(q.querySelector('p'), { opacity: 0, filter: RM ? 'none' : 'blur(6px)', duration: .6 }, at + .2);
+      call(tl, () => sfx.blip(1200 + i * 150), at);
+    });
+  },
+  // 8 · conclusion: brain at rest → check
+  (tl, el) => {
+    call(tl, M('brain', { dur: 2.4, burst: 1.4 }), 0);
+    chapIn(tl, el, 0);
+    titleIn(tl, el, .2, 1);
+    rise(tl, $('.lead', el), 1.1);
+    $$('.checks li', el).forEach((l, i) => {
+      const at = 2 + i * .85;
+      tl.from(l, { opacity: 0, x: -20 * Y, duration: .6 }, at);
+      draw(tl, [l.querySelector('path')], at + .25, .45);
+      call(tl, () => sfx.beep(1046 + i * 130, .07), at + .4);
+    });
+    call(tl, () => { P.morph(S.check, { dur: 2.2, burst: 1.6 }); sfx.boom(); }, 5.6);
+  },
+  // 9 · merci: "Merci." in particles, then dust in the spotlight
+  (tl, el) => {
+    call(tl, M('merci', { dur: 2.4, burst: 1.8 }), 0);
+    gsap.set($('.col', el), { opacity: 0 });
+    tl.from($('.spot', el), { opacity: 0, duration: 2 }, 2.6);
+    call(tl, () => { P.morph(S.cone, { dur: 2.6, burst: 1.2 }); sfx.whoosh(); }, 3.2);
+    tl.from($('.chair', el), { opacity: 0, filter: 'brightness(0)', duration: 1.6 }, 3.6);
+    tl.to($('.col', el), { opacity: 1, duration: .1 }, 3.8);
+    titleIn(tl, el, 3.8, 1.3);
+    rise(tl, $('p', el), 5);
+  }
+];
+const restShape = ['brain', 'slices', 'tiles', 'net', 'dust', 'fusion', 'cube', 'scale', 'check', 'cone'];
+
+/* ================= player ================= */
+const segs = $('#segs');
+scenes.forEach((s, i) => { const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-label', `Aller à la diapositive ${i + 1}`);
+  b.innerHTML = '<i><b></b></i>'; b.onclick = () => started ? show(i) : start(i); segs.appendChild(b); });
+const fills = $$('#segs b');
+let idx = -1, master = null, playing = false, speed = 1, started = false, clock = 0, lastT = performance.now();
+const speeds = [1, 1.5, .75, .5];
+const paint = () => fills.forEach((f, i) => f.style.width = i < idx ? '100%' : i > idx ? '0%' : (master ? master.progress() * 100 : 0) + '%');
+
+function reset(el) {
+  gsap.killTweensOf(el.querySelectorAll('*'));
+  gsap.set([el, ...el.querySelectorAll('*')], { clearProps: 'transform,opacity,filter,boxShadow,visibility,x,y,scale,rotate,--f,strokeDasharray,strokeDashoffset' });
+  $$('.sc', el).forEach(e => e.textContent = e.dataset.t);
+  $$('.hot,.step.on', el).forEach(e => e.classList.remove('hot', 'on'));
+  $$('path', el).forEach(p => { if (p.id !== 'ecgpath') { p.style.strokeDasharray = ''; p.style.strokeDashoffset = ''; } });
+  if (el === scenes[0] && idx !== 0) ecgPath.style.opacity = '0';
+}
+function show(i, instant) {
+  if (i < 0 || i >= scenes.length) return;
+  const prev = scenes[idx];
+  amb.forEach(t => t.kill()); amb = [];
+  if (master) master.kill();
+  gsap.killTweensOf(P.glitch); P.glitch.v = 0;
+  if (prev && prev !== scenes[i]) {
+    gsap.killTweensOf(prev);
+    gsap.to(prev, { opacity: 0, scale: RM ? 1 : 1.03, filter: RM ? 'none' : 'blur(10px)', duration: instant ? 0 : .7, ease: 'power2.in',
+      onComplete: () => { prev.classList.remove('on'); reset(prev); } });
+  } else if (prev) reset(prev);
+  idx = i;
+  const el = scenes[i];
+  el.classList.add('on'); gsap.set(el, { opacity: 1, scale: 1, filter: 'none' });
+  if (i === 0) ecgPath.style.opacity = '';
+  $('#h-seq').textContent = `SÉQ. ${String(i + 1).padStart(2, '0')}/${scenes.length}`;
+  $('#h-mode').textContent = el.dataset.hud;
+  $('#h-title').textContent = el.getAttribute('aria-label');
+  if (!instant) {
+    sfx.whoosh();
+    if (!RM) gsap.fromTo('.fx-sweep', { top: -6, opacity: 1 }, { top: 906, duration: 1.1, ease: 'power2.inOut', onComplete: () => gsap.set('.fx-sweep', { opacity: 0 }) });
+  }
+  master = gsap.timeline({ paused: true, onUpdate: paint });
+  const build = gsap.timeline();
+  builds[i](build, el);
+  master.add(build, instant ? 0 : .3);
+  const hold = +el.dataset.hold;
+  if (hold) { master.to({}, { duration: hold }); master.eventCallback('onComplete', () => show(idx + 1)); }
+  else master.eventCallback('onComplete', () => { setPlaying(false); paint(); });
+  master.timeScale(speed);
+  if (instant) { master.progress(1, true); master.pause(); P.morph(S[restShape[i]] || S.brain, { instant: true }); if (i === 0) ecgPath.style.opacity = '0'; }
+  else if (playing) master.play();
+  paint();
+}
+function setPlaying(p) {
+  playing = p;
+  $('#playicon').setAttribute('d', p ? 'M6 5h4v14H6zM14 5h4v14h-4z' : 'M7 4.5v15l12.5-7.5z');
+  $('#play').setAttribute('aria-label', p ? 'Pause' : 'Lecture');
+  if (master) {
+    if (p && master.progress() === 1 && idx === scenes.length - 1) { show(0); return; }
+    p ? master.play() : master.pause();
+  }
+  amb.forEach(t => p ? t.play() : t.pause());
+}
+async function start(at = 0) {
+  if (started) return;
+  started = true;
+  sfx.init();
+  try { document.documentElement.requestFullscreen?.().catch(() => {}); } catch (e) {}
+  try { navigator.wakeLock?.request('screen').catch(() => {}); } catch (e) {}
+  await ready;
+  if (master) master.kill(); master = null;
+  gsap.to('#start', { opacity: 0, duration: .5, onComplete: () => $('#start').hidden = true });
+  scenes.forEach(s => { reset(s); s.classList.remove('on'); }); idx = -1; clock = 0;
+  playing = true; setPlaying(true);
+  show(at);
+}
+ready.then(() => { $('#go').disabled = false; $('#golbl').textContent = 'Lancer la présentation'; });
+$('#go').onclick = () => start(0);
+$('#snd').onclick = () => { sfx.set(!sfx.on); syncSnd(); };
+function syncSnd() {
+  $('#snd').textContent = sfx.on ? '♪ Son : activé' : '♪ Son : coupé'; $('#snd').setAttribute('aria-pressed', sfx.on);
+  $('#muteicon').setAttribute('d', sfx.on ? 'M4 9h4l5-4v14l-5-4H4zM16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12' : 'M4 9h4l5-4v14l-5-4H4zM16 9l5 6M21 9l-5 6');
+  $('#mute').setAttribute('aria-label', sfx.on ? 'Couper le son' : 'Activer le son');
+}
+$('#mute').onclick = () => { sfx.set(!sfx.on); syncSnd(); };
+$('#play').onclick = () => started ? setPlaying(!playing) : start(0);
+$('#next').onclick = () => started ? show(idx + 1) : start(0);
+$('#prev').onclick = () => started && show(Math.max(0, idx - 1));
+$('#speed').onclick = () => { speed = speeds[(speeds.indexOf(speed) + 1) % speeds.length]; $('#speed').textContent = String(speed).replace('.', ',') + '×'; master && master.timeScale(speed); };
+const toggleFs = () => { try { document.fullscreenElement ? document.exitFullscreen?.() : document.documentElement.requestFullscreen?.().catch(() => {}); } catch (e) {} };
+$('#fs').onclick = toggleFs;
+addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('button') && (e.key === ' ' || e.key === 'Enter')) return;
+  if (e.key === ' ' || e.key === 'k') { e.preventDefault(); started ? setPlaying(!playing) : start(0); }
+  else if (['ArrowRight', 'PageDown', 'ArrowDown'].includes(e.key)) { e.preventDefault(); started ? show(idx + 1) : start(0); }
+  else if (['ArrowLeft', 'PageUp', 'ArrowUp'].includes(e.key)) { e.preventDefault(); started && show(Math.max(0, idx - 1)); }
+  else if (e.key === 'f' || e.key === 'F') toggleFs();
+  else if (e.key === 'm' || e.key === 'M') { sfx.set(!sfx.on); syncSnd(); }
+  else if (e.key === 'Home') started && show(0);
+  else if (e.key === 'End') started && show(scenes.length - 1);
+});
+let idleT;
+const wake = () => { $('#ctrl').classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => started && playing && $('#ctrl').classList.add('idle'), 2600); };
+['pointermove', 'pointerdown', 'keydown'].forEach(ev => addEventListener(ev, wake)); wake();
+
+/* film grain + clock */
+const gr = $('#grain').getContext('2d'), gid = gr.createImageData(400, 225);
+let gf = 0;
+(function tick(t) {
+  if (started && playing) clock += (t - lastT) / 1000;
+  lastT = t;
+  const s = Math.floor(clock);
+  $('#h-time').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  if (!RM && (gf++ % 3 === 0)) { const d = gid.data; for (let i = 0; i < d.length; i += 4) { const v = Math.random() * 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; } gr.putImageData(gid, 0, 0); }
+  requestAnimationFrame(tick);
+})(lastT);
+
+// at rest: the title scene fully drawn behind the start button
+show(0, true);
+})();
+</script>
+</body>
+</html>
